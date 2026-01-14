@@ -118,7 +118,6 @@ const AdminDashboard = () => {
 
         if (result.status === 200 && result.data) {
           setServices(result.data);
-          console.log(result.data);
         }
       } catch (error) {
         console.error("Error fetching services:", error);
@@ -138,8 +137,6 @@ const AdminDashboard = () => {
         setassociations_count(result.associations_count);
         setservices_count(result.services_count);
         setpending_count(result.pending_count);
-
-        console.log(result);
       } catch (error) {
         console.error("Error fetching services:", error);
       }
@@ -166,7 +163,6 @@ const AdminDashboard = () => {
         const response = await fetch("http://127.0.0.1:8000/api/allPendusers");
         const result = await response.json();
         setPendUsers(result.data);
-        console.log(result.data);
       } catch (error) {
         console.error("Error fetching services:", error);
       }
@@ -384,8 +380,11 @@ const AdminDashboard = () => {
                           </div>
 
                           <DialogFooter>
+                            <Button onClick={() => setOpen(false)}>
+                              تعليق الطلب حالي
+                            </Button>
                             <Button onClick={() => accept(user.id)}>
-                              إضافة الخدمة
+                              قبول المستخدم
                             </Button>
                           </DialogFooter>
                         </DialogContent>
