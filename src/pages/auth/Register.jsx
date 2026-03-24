@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api } from "../../services/axios";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Upload, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
+import { useAuth } from "@/context/AuthContext";
 const Register = () => {
   const [full_name, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,16 +22,15 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [orgLicense, setOrgLicense] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [images, setImages] = useState([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
   const handleFileChange = (e) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
       setDocuments(filesArray);
-
       // إظهار رسالة تأكيد تحميل الوثائق
       if (filesArray.length > 0) {
         toast({
@@ -55,6 +56,14 @@ const Register = () => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast({
+        title: "خطأ في التحقق",
+        description: "يرجى التأكد من إدخال جميع الحقول",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsLoading(true);
     try {
       const formData = new FormData();
@@ -70,31 +79,19 @@ const Register = () => {
         if (images.length > 0) {
           formData.append("image", images[0]);
         }
-        console.log(formData);
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/clientRegister",
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          if (data.errors) {
-            const messages = Object.values(data.errors).flat().join("، ");
-            throw new Error(messages);
-          }
-
-          throw new Error(data.data || "حدث خطأ غير متوقع أثناء التسجيل");
-        }
-
+        const response = await api.post("/clientRegister", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        console.log(response.data.data);
+        login(response.data.data);
         // تسجيل ناجح
         toast({
           title: "تم إنشاء الحساب بنجاح",
           description: data.msg || "مرحباً بك في منصة تمكين",
         });
-        navigate("/login");
+        navigate("/");
       } else {
         formData.append("full_name", full_name);
         formData.append("email", email);
@@ -108,43 +105,29 @@ const Register = () => {
         if (images.length > 0) {
           formData.append("image", images[0]);
         }
-        console.log(formData);
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/associationRegister",
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-        const data = await response.json();
-        if (!response.ok) {
-          if (data.errors) {
-            const messages = Object.values(data.errors).flat().join("، ");
-            throw new Error(messages);
-          }
-
-          // استخدم msg بدل message
-          throw new Error(data.data || "حدث خطأ غير متوقع أثناء التسجيل");
-        }
-
+        const response = await api.post("/associationRegister", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+        login(response.data.data);
         // تسجيل ناجح
         toast({
           title: "تم إنشاء الحساب بنجاح",
           description: data.msg || "مرحباً بك في منصة تمكين",
         });
-        navigate("/login");
+        navigate("/");
       }
     } catch (error) {
       toast({
         title: "فشل التسجيل",
-        description: error.message,
+        description: "يرجى التحقق من بيانات الدخول",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 rtl">
       <div className="w-full max-w-xl">

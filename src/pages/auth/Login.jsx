@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api } from "../../services/axios";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, LogIn, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,70 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
-import { useAuth } from "@/components/Auth/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [token, setToken] = useState("");
-  const [role, setRole] = useState("");
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [documents, setDocuments] = useState([]);
-  const navigate = useNavigate();
-  const { login } = useAuth();
 
-  // const handleSubmit = async (e) => {
-  //     e.preventDefault();
-  //     // toast({
-  //     //     title: "خطأ في تسجيل الدخول",
-  //     //     description: "يرجى إدخال البريد الإلكتروني وكلمة المرور",
-  //     //     variant: "destructive",
-  //     // });
-  //     setIsLoading(true);
-  //     try {
-  //         const response = await fetch("http://127.0.0.1:8000/api/login", {
-  //             method: "POST",
-  //             headers: {
-  //                 "Content-Type": "application/json",
-  //             },
-  //             body: JSON.stringify({ email, password }),
-  //         });
-  //         const data = await response.json();
-  //         if (!response.ok) {
-  //             throw new Error(data.data.msg );
-  //         }
-  //         toast({
-  //             title: "تم تسجيل الدخول بنجاح",
-  //             description: `مرحباً ${data.data.name}`,
-  //         });
-
-  //     } catch (error) {
-  //         toast({
-  //             title: "فشل تسجيل الدخول",
-  //             description: data.data.msg,
-  //             variant: "destructive",
-  //         });
-  //     } finally {
-  //         setIsLoading(false);
-  //     }
-  //     login(data.data.name, data.data.token, data.data.role);
-  //     switch (data.data.role) {
-  //         case "client":
-  //             navigate("/");
-  //             break;
-  //         case "association":
-  //             navigate("/association-dashboard");
-  //             break;
-  //         case "admin":
-  //             navigate("/admin");
-  //             break;
-  //         default:
-  //             navigate("/");
-  //       }
-  // };
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
@@ -83,67 +31,38 @@ const Login = () => {
     }
     setIsLoading(true);
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+      const res = await api.post("/login", {
+        email,
+        password,
       });
-      const data = await response.json();
-      // console.log(data.data.state);
-
-      if (!response.ok) {
-        if (data.data.state == 0) {
-          toast({
-            title: "فشل تسجيل الدخول",
-            description: "يرجى انتظار موافقة الادمن ثم المحاولة لاحقا",
-          });
-          return;
-        }
-        const message = Array.isArray(data.data)
-          ? data.data.join(", ")
-          : data.message || "حدث خطأ غير معروف";
-        toast({
-          title: "خطأ في التحقق",
-          description: message,
-          variant: "destructive",
-        });
-        return;
-      }
-      // login(data.data.email, data.data.token, data.data.role);
-      localStorage.setItem("email", data.data.email);
-      localStorage.setItem("token", data.data.token);
-      localStorage.setItem("role", data.data.role);
-      localStorage.setItem("id", data.data.id);
-      // console.log(data.data.token);
+      login(res.data.data);
       toast({
         title: "تم تسجيل الدخول",
-        description: `مرحباً ${data.data.email}`,
+        description: `مرحباً ${res.data.data.email}`,
       });
-      switch (data.data.role) {
+      switch (res.data.role) {
         case "client":
           navigate("/");
           break;
         case "association":
-          navigate("/association-dashboard");
+          navigate("/association/dashboard");
           break;
         case "admin":
-          navigate("/admin");
+          navigate("/");
           break;
         default:
           navigate("/");
       }
-    } catch (error) {
+    } catch (err) {
       toast({
         title: "فشل تسجيل الدخول",
-        description: "تحقق من الاتصال أو حاول لاحقاً.",
-        variant: "destructive",
+        description: "يرجى التحقق من بيانات الدخول",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4"
@@ -251,4 +170,5 @@ const Login = () => {
     </div>
   );
 };
+
 export default Login;
