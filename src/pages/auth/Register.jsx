@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/context/AuthContext";
+import { handleApiError } from "../../utils/apiError";
 const Register = () => {
   const [full_name, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -27,6 +28,7 @@ const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login } = useAuth();
+  const [errors, setErrors] = useState({});
   const handleFileChange = (e) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
@@ -56,14 +58,6 @@ const Register = () => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast({
-        title: "خطأ في التحقق",
-        description: "يرجى التأكد من إدخال جميع الحقول",
-        variant: "destructive",
-      });
-      return;
-    }
     setIsLoading(true);
     try {
       const formData = new FormData();
@@ -84,12 +78,11 @@ const Register = () => {
             "Content-Type": "multipart/form-data",
           },
         });
-        console.log(response.data.data);
         login(response.data.data);
         // تسجيل ناجح
         toast({
-          title: "تم إنشاء الحساب بنجاح",
-          description: data.msg || "مرحباً بك في منصة تمكين",
+          title: "Account Creted Successfully",
+          description: data.msg || "Wellcome to Tamkeen...Your Home",
         });
         navigate("/");
       } else {
@@ -113,15 +106,21 @@ const Register = () => {
         login(response.data.data);
         // تسجيل ناجح
         toast({
-          title: "تم إنشاء الحساب بنجاح",
-          description: data.msg || "مرحباً بك في منصة تمكين",
+          title: "Account Creted Successfully",
+          description: data.msg || "Wellcome to Tamkeen...Your Home",
         });
         navigate("/");
       }
     } catch (error) {
+      const apiErrors = error.response?.data?.data;
+      if (apiErrors) {
+        setErrors(apiErrors);
+      }
+
       toast({
-        title: "فشل التسجيل",
-        description: "يرجى التحقق من بيانات الدخول",
+        title: error.response?.data,
+        msg,
+        description: error.response?.data?.data,
         variant: "destructive",
       });
     } finally {
@@ -155,42 +154,69 @@ const Register = () => {
             </TabsList>
 
             <form onSubmit={handleSubmit}>
-              <TabsContent value="client" className="space-y-4" dir="rtl">
+              <TabsContent value="client" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1 text-right">
-                    <Label htmlFor="full_name">الاسم الكامل</Label>
+                  <div className="space-y-2 ">
+                    <Label htmlFor="full_name">Full Name</Label>
                     <Input
                       id="full_name"
-                      placeholder="أدخل الاسم الكامل"
+                      placeholder="full_name"
                       value={full_name}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="text-right"
+                      className={`border p-2 rounded w-full ${
+                        errors.full_name
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
+                      }`}
                     />
+                    {errors.full_name && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {errors.full_name[0]}
+                      </p>
+                    )}
                   </div>
-                  <div className="space-y-2 text-right">
-                    <Label htmlFor="email-individual">البريد الإلكتروني</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="email-individual">Email</Label>
                     <Input
                       id="email-individual"
                       type="email"
-                      placeholder="أدخل بريدك الإلكتروني"
+                      placeholder="example@email.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="text-right"
+                      className={`border p-2 rounded w-full ${
+                        errors.email
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
+                      }`}
                     />
+                    {errors.email && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {errors.email[0]}
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-right">
-                    <Label htmlFor="phone-individual">رقم الجوال</Label>
+                {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone-individual">Phone</Label>
                     <Input
                       id="phone-individual"
                       placeholder="09xxxxxxxx"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="text-right"
+                      className={`border p-2 rounded w-full ${
+                        errors.full_name
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
+                      }`}
                     />
+                    {errors.full_name && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {errors.full_name[0]}
+                      </p>
+                    )}
                   </div>
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="images">صورة شخصية </Label>
                     <div className="flex items-center flex-row-reverse gap-2">
                       <Label
@@ -215,7 +241,7 @@ const Register = () => {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="documents">وثائق التوثيق</Label>
                     <div className="flex items-center flex-row-reverse gap-2">
                       <Label
@@ -238,7 +264,7 @@ const Register = () => {
                       />
                     </div>
                   </div>
-                  <div className="space-y-1 text-right mt-3">
+                  <div className="space-y-1  mt-3">
                     <span className="text-xs text-gray-500">
                       يمكنك رفع أي بطاقة أو وثيقة تثبت أحقيتك في الانضمام لنا
                     </span>
@@ -247,20 +273,24 @@ const Register = () => {
                       سيقوم الأدمن بمراجعة الملفات
                     </span>
                   </div>
-                </div>
+                </div> */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-right">
-                    <Label htmlFor="password-individual">كلمة المرور</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="password-individual">Password</Label>
                     <div className="relative">
                       <Input
                         id="password-individual"
                         type={showPassword ? "text" : "password"}
-                        placeholder="أدخل كلمة المرور"
+                        placeholder="Abcd123@"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="text-right pr-10"
+                        className={`border p-2 rounded w-full ${
+                          errors.password
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-300"
+                        }`}
                       />
-                      {/* <button
+                      <button
                         type="button"
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
                         onClick={() => setShowPassword(!showPassword)}
@@ -270,26 +300,34 @@ const Register = () => {
                         ) : (
                           <Eye size={18} />
                         )}
-                      </button> */}
+                      </button>
                     </div>
-                    <p className="text-xs text-gray-500">
-                      يجب أن تكون كلمة المرور 8 أحرف على الأقل
-                    </p>
+                    <div className="relative">
+                      {errors.password && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {errors.password[0]}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="confirm-password-individual">
-                      تأكيد كلمة المرور
+                      Passowrd confirmation
                     </Label>
                     <div className="relative">
                       <Input
                         id="confirm-password-individual"
                         type={showConfirmPassword ? "text" : "password"}
-                        placeholder="أعد إدخال كلمة المرور"
+                        placeholder="Re-enter your password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="text-right pr-10"
+                        className={`border p-2 rounded w-full ${
+                          errors.password_confirmation
+                            ? "border-red-500 bg-red-50"
+                            : "border-gray-300"
+                        }`}
                       />
-                      {/* <button
+                      <button
                         type="button"
                         className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
                         onClick={() =>
@@ -301,7 +339,21 @@ const Register = () => {
                         ) : (
                           <Eye size={18} />
                         )}
-                      </button> */}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      {(errors.password && !confirmPassword && (
+                        <p className="text-red-500 text-sm mt-1">
+                          Confirm your passowrd.
+                        </p>
+                      )) ||
+                        (errors.password &&
+                          confirmPassword &&
+                          confirmPassword != password && (
+                            <p className="text-red-500 text-sm mt-1">
+                              The password field confirmation does not match.
+                            </p>
+                          ))}
                     </div>
                   </div>
                 </div>
@@ -309,17 +361,17 @@ const Register = () => {
 
               <TabsContent value="association" className="space-y-4" dir="rtl">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="full-name">اسم الجمعية/المركز</Label>
                     <Input
                       id="full-name"
                       placeholder="أدخل اسم الجمعية أو المركز"
                       value={full_name}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="text-right"
+                      className=""
                     />
                   </div>
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="email-org">البريد الإلكتروني</Label>
                     <Input
                       id="email-org"
@@ -327,23 +379,23 @@ const Register = () => {
                       placeholder="أدخل البريد الإلكتروني"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="text-right"
+                      className=""
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="phone-org">رقم التواصل</Label>
                     <Input
                       id="phone-org"
                       placeholder="09xxxxxxxx"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="text-right"
+                      className=""
                     />
                   </div>
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="images">صورة للملف الشخصي </Label>
                     <div className="flex items-center flex-row-reverse gap-2">
                       <Label
@@ -368,7 +420,7 @@ const Register = () => {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="documents">وثائق التوثيق</Label>
                     <div className="flex items-center flex-row-reverse gap-2">
                       <Label
@@ -394,14 +446,14 @@ const Register = () => {
                       يمكنك رفع أي بطاقة أو وثيقة تثبت أحقيتك في الانضمام لنا
                     </p>
                   </div>
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="license">رقم الترخيص</Label>
                     <Input
                       id="license"
                       placeholder="أدخل رقم الترخيص"
                       value={orgLicense}
                       onChange={(e) => setOrgLicense(e.target.value)}
-                      className="text-right"
+                      className=""
                     />
                     <p className="text-xs text-gray-500">
                       سيتم التحقق من صحة الترخيص قبل تفعيل الحساب
@@ -410,7 +462,7 @@ const Register = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="password-org">كلمة المرور</Label>
                     <div className="relative">
                       <Input
@@ -419,12 +471,12 @@ const Register = () => {
                         placeholder="أدخل كلمة المرور"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="text-right pr-10"
+                        className=" pr-10"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-2 text-right">
+                  <div className="space-y-2 ">
                     <Label htmlFor="confirm-password-org">
                       تأكيد كلمة المرور
                     </Label>
@@ -435,7 +487,7 @@ const Register = () => {
                         placeholder="أعد إدخال كلمة المرور"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="text-right pr-10"
+                        className=" pr-10"
                       />
                     </div>
                   </div>

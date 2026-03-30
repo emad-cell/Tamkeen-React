@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 import { useAuth } from "../../context/AuthContext";
+import { handleApiError } from "@/utils/apiError";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -21,24 +22,17 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast({
-        title: "خطأ في التحقق",
-        description: "يرجى التأكد من إدخال جميع الحقول",
-        variant: "destructive",
-      });
-      return;
-    }
     setIsLoading(true);
     try {
       const res = await api.post("/login", {
         email,
         password,
       });
+      console.log(res);
       login(res.data.data);
       toast({
-        title: "تم تسجيل الدخول",
-        description: `مرحباً ${res.data.data.email}`,
+        title: "Loggedin successfully",
+        description: `Wellcome ${res.data.data.email}`,
       });
       switch (res.data.role) {
         case "client":
@@ -53,10 +47,11 @@ const Login = () => {
         default:
           navigate("/");
       }
-    } catch (err) {
+    } catch (error) {
       toast({
-        title: "فشل تسجيل الدخول",
-        description: "يرجى التحقق من بيانات الدخول",
+        title: "Try again please",
+        description: handleApiError(error),
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

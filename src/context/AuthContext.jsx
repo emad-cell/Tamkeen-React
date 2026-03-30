@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     localStorage.setItem("token", data.token);
     setUser(data.email);
-    setLoading(false);
+    // setLoading(false);
   };
 
   const logout = () => {
