@@ -29,13 +29,16 @@ export const AuthProvider = ({ children }) => {
   const login = (data) => {
     setLoading(true);
     localStorage.setItem("token", data.token);
-    setUser(data.email);
-    // setLoading(false);
+    setUser(data);
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    setUser(null);
+  const logout = async () => {
+    try {
+      await api.post("/logout");
+    } finally {
+      localStorage.removeItem("token");
+      setUser(null);
+    }
   };
 
   return (

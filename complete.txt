@@ -1,0 +1,197 @@
+const [phone, setPhone] = useState("");
+const [orgLicense, setOrgLicense] = useState("");
+const [images, setImages] = useState([]);
+const [documents, setDocuments] = useState([]);
+=========================================
+  const handleFileChange = (e) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setDocuments(filesArray);
+      // إظهار رسالة تأكيد تحميل الوثائق
+      if (filesArray.length > 0) {
+        toast({
+          title: "تم رفع الوثائق",
+          description: `تم رفع ${filesArray.length} ملف/ملفات بنجاح`,
+        });
+      }
+    }
+  };
+  const handleImageChange = (e) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setImages(filesArray);
+
+      // إظهار رسالة تأكيد تحميل الوثائق
+      if (filesArray.length > 0) {
+        toast({
+          title: "تم رفع الصورة",
+          description: `تم رفع ${filesArray.length} ملف/ملفات بنجاح`,
+        });
+      }
+    }
+  };
+  ================================================
+          formData.append("password_confirmation", confirmPassword);
+        if (documents.length > 0) {
+          formData.append("file", documents[0]);
+        }
+        if (images.length > 0) {
+          formData.append("image", images[0]);
+        }
+  =================================================
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 ">
+                    <Label htmlFor="phone-org">رقم التواصل</Label>
+                    <Input
+                      id="phone-org"
+                      placeholder="09xxxxxxxx"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className=""
+                    />
+                  </div>
+                  <div className="space-y-2 ">
+                    <Label htmlFor="images">صورة للملف الشخصي </Label>
+                    <div className="flex items-center flex-row-reverse gap-2">
+                      <Label
+                        htmlFor="images"
+                        className="flex items-center gap-2 py-2 px-4 border border-dashed border-primary rounded-md w-full cursor-pointer hover:bg-gray-50 transition-colors"
+                      >
+                        <Upload size={18} className="text-primary" />
+                        <span>
+                          {images.length > 0
+                            ? `${images.length} ملف/ملفات محددة`
+                            : "اضغط لتحميل صورة شخصية"}
+                        </span>
+                      </Label>
+                      <Input
+                        id="images"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleImageChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 ">
+                    <Label htmlFor="documents">وثائق التوثيق</Label>
+                    <div className="flex items-center flex-row-reverse gap-2">
+                      <Label
+                        htmlFor="documents"
+                        className="flex items-center gap-2 py-2 px-4 border border-dashed border-primary rounded-md w-full cursor-pointer hover:bg-gray-50 transition-colors"
+                      >
+                        <Upload size={18} className="text-primary" />
+                        <span>
+                          {documents.length > 0
+                            ? `${documents.length} ملف/ملفات محددة`
+                            : "اضغط لتحميل الوثائق"}
+                        </span>
+                      </Label>
+                      <Input
+                        id="documents"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      يمكنك رفع أي بطاقة أو وثيقة تثبت أحقيتك في الانضمام لنا
+                    </p>
+                  </div>
+                  <div className="space-y-2 ">
+                    <Label htmlFor="license">رقم الترخيص</Label>
+                    <Input
+                      id="license"
+                      placeholder="أدخل رقم الترخيص"
+                      value={orgLicense}
+                      onChange={(e) => setOrgLicense(e.target.value)}
+                      className=""
+                    />
+                    <p className="text-xs text-gray-500">
+                      سيتم التحقق من صحة الترخيص قبل تفعيل الحساب
+                    </p>
+                  </div>
+                </div>
+===========================================
+                {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone-individual">Phone</Label>
+                    <Input
+                      id="phone-individual"
+                      placeholder="09xxxxxxxx"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className={`border p-2 rounded w-full ${
+                        errors.full_name
+                          ? "border-red-500 bg-red-50"
+                          : "border-gray-300"
+                      }`}
+                    />
+                    {errors.full_name && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {errors.full_name[0]}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2 ">
+                    <Label htmlFor="images">صورة شخصية </Label>
+                    <div className="flex items-center flex-row-reverse gap-2">
+                      <Label
+                        htmlFor="images"
+                        className="flex items-center gap-2 py-2 px-4 border border-dashed border-primary rounded-md w-full cursor-pointer hover:bg-gray-50 transition-colors"
+                      >
+                        <Upload size={18} className="text-primary" />
+                        <span>
+                          {images.length > 0
+                            ? `${images.length} ملف/ملفات محددة`
+                            : "اضغط لتحميل صورة شخصية"}
+                        </span>
+                      </Label>
+                      <Input
+                        id="images"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleImageChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 ">
+                    <Label htmlFor="documents">وثائق التوثيق</Label>
+                    <div className="flex items-center flex-row-reverse gap-2">
+                      <Label
+                        htmlFor="documents"
+                        className="flex items-center gap-2 py-2 px-4 border border-dashed border-primary rounded-md w-full cursor-pointer hover:bg-gray-50 transition-colors"
+                      >
+                        <Upload size={18} className="text-primary" />
+                        <span>
+                          {documents.length > 0
+                            ? `${documents.length} ملف/ملفات محددة`
+                            : "اضغط لتحميل الوثائق"}
+                        </span>
+                      </Label>
+                      <Input
+                        id="documents"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1  mt-3">
+                    <span className="text-xs text-gray-500">
+                      يمكنك رفع أي بطاقة أو وثيقة تثبت أحقيتك في الانضمام لنا
+                    </span>
+                    <br />
+                    <span className="text-xs text-gray-500">
+                      سيقوم الأدمن بمراجعة الملفات
+                    </span>
+                  </div>
+                </div> */}

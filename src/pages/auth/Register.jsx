@@ -1,126 +1,110 @@
 import { useState } from "react";
-import { api } from "../../services/axios";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Upload, UserPlus, Users } from "lucide-react";
+import { Eye, EyeOff, UserPlus, Users } from "lucide-react";
+import { useGoogleLogin } from "@react-oauth/google";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
+import {
+  authWithGoogle,
+  registerAssociation,
+  registerClient,
+} from "@/services/auth";
 import { useAuth } from "@/context/AuthContext";
-import { handleApiError } from "../../utils/apiError";
+import { handleApiError } from "@/utils/apiError";
 const Register = () => {
   const [full_name, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [userType, setUserType] = useState("client");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [orgLicense, setOrgLicense] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [documents, setDocuments] = useState([]);
-  const [images, setImages] = useState([]);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login } = useAuth();
   const [errors, setErrors] = useState({});
-  const handleFileChange = (e) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setDocuments(filesArray);
-      // إظهار رسالة تأكيد تحميل الوثائق
-      if (filesArray.length > 0) {
-        toast({
-          title: "تم رفع الوثائق",
-          description: `تم رفع ${filesArray.length} ملف/ملفات بنجاح`,
-        });
-      }
-    }
-  };
-  const handleImageChange = (e) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setImages(filesArray);
 
-      // إظهار رسالة تأكيد تحميل الوثائق
-      if (filesArray.length > 0) {
-        toast({
-          title: "تم رفع الصورة",
-          description: `تم رفع ${filesArray.length} ملف/ملفات بنجاح`,
+  const handleGoogleAuth = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsGoogleLoading(true);
+
+      try {
+        const res = await authWithGoogle({
+          access_token: tokenResponse.access_token,
+          provider: "google",
         });
+
+        const authData = res?.data?.data || res?.data?.user || res?.data;
+        const token = authData?.token || res?.data?.token;
+
+        if (!token) {
+          throw new Error("Token not found in Google login response");
+        }
+
+        login({ ...authData, token });
+        toast({
+          title: "Logged in successfully",
+          description: `Welcome, ${authData?.email || "there"}`,
+        });
+        navigate("/");
+      } catch (error) {
+        toast({
+          title: "Google login failed",
+          description: handleApiError(error),
+          variant: "destructive",
+        });
+      } finally {
+        setIsGoogleLoading(false);
       }
-    }
-  };
+    },
+    onError: () => {
+      toast({
+        title: "Google login was canceled",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (password !== confirmPassword) {
+      setErrors({ confirmPassword: ["Passwords do not match"] });
+      return;
+    }
+    setErrors({}); // clear stale errors
     setIsLoading(true);
-    try {
-      const formData = new FormData();
-      if (userType === "client") {
-        formData.append("full_name", full_name);
-        formData.append("email", email);
-        formData.append("mobile_number", phone);
-        formData.append("password", password);
-        formData.append("password_confirmation", confirmPassword);
-        if (documents.length > 0) {
-          formData.append("file", documents[0]);
-        }
-        if (images.length > 0) {
-          formData.append("image", images[0]);
-        }
-        const response = await api.post("/clientRegister", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        login(response.data.data);
-        // تسجيل ناجح
-        toast({
-          title: "Account Creted Successfully",
-          description: data.msg || "Wellcome to Tamkeen...Your Home",
-        });
-        navigate("/");
-      } else {
-        formData.append("full_name", full_name);
-        formData.append("email", email);
-        formData.append("mobile_number", phone);
-        formData.append("license", orgLicense);
-        formData.append("password", password);
-        formData.append("password_confirmation", confirmPassword);
-        if (documents.length > 0) {
-          formData.append("file", documents[0]);
-        }
-        if (images.length > 0) {
-          formData.append("image", images[0]);
-        }
-        const response = await api.post("/associationRegister", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-        login(response.data.data);
-        // تسجيل ناجح
-        toast({
-          title: "Account Creted Successfully",
-          description: data.msg || "Wellcome to Tamkeen...Your Home",
-        });
-        navigate("/");
-      }
-    } catch (error) {
-      const apiErrors = error.response?.data?.data;
-      if (apiErrors) {
-        setErrors(apiErrors);
-      }
 
+    try {
+      const payload = {
+        full_name,
+        email,
+        password,
+        password_confirmation: confirmPassword,
+      };
+      const response =
+        userType == "client"
+          ? await registerClient(payload)
+          : await registerAssociation(payload); // single call, no if/else
+      console.log(response);
+      login(response.data.data);
       toast({
-        title: error.response?.data,
-        msg,
-        description: error.response?.data?.data,
+        title: "Account Created Successfully",
+        description: response.data.msg, // fixed
+      });
+      navigate("/");
+    } catch (error) {
+      const response = error.response?.data;
+      if (response?.data) setErrors(response.data);
+      toast({
+        title: "Registration Failed",
+        description: response?.msg || "Something went wrong",
         variant: "destructive",
       });
     } finally {
@@ -128,424 +112,397 @@ const Register = () => {
     }
   };
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 rtl">
-      <div className="w-full max-w-xl">
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          <div className="text-center mb-8">
-            <Link to="/" className="inline-block">
-              <Logo size="large" withText={true} />
-            </Link>
-            <p className="text-gray-600 mt-2">إنشاء حساب جديد</p>
-          </div>
+    <div
+      className="relative min-h-screen overflow-hidden bg-[#f4f7f2] p-4"
+      style={{ direction: "ltr" }}
+    >
+      <div className="pointer-events-none absolute -top-32 right-0 h-80 w-80 rounded-full bg-emerald-300/30 blur-3xl animate-auth-float" />
+      <div className="pointer-events-none absolute -bottom-24 left-0 h-72 w-72 rounded-full bg-teal-300/30 blur-3xl animate-auth-float-delay" />
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center">
+        <div className="w-full max-w-xl">
+          <div className="rounded-2xl border border-emerald-100 bg-white/95 p-8 shadow-[0_20px_60px_rgba(16,24,40,0.08)] backdrop-blur-md animate-auth-fade-up">
+            <div className="text-center mb-8">
+              <Link to="/" className="inline-block">
+                <Logo size="large" withText={true} />
+              </Link>
+              <p className="mt-2 text-sm font-medium text-slate-600">
+                Create a new account
+              </p>
+            </div>
 
-          <Tabs defaultValue="client" onValueChange={setUserType}>
-            <TabsList className="grid w-full grid-cols-2 mb-8 flex-row-reverse">
-              <TabsTrigger value="client" className="flex items-center gap-2">
-                <UserPlus size={18} />
-                <span>فرد</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="association"
-                className="flex items-center gap-2"
-              >
-                <Users size={18} />
-                <span>جمعية/مركز</span>
-              </TabsTrigger>
-            </TabsList>
+            <Tabs defaultValue="client" onValueChange={setUserType}>
+              <TabsList className="mb-8 grid w-full grid-cols-2 rounded-xl border border-slate-200 bg-[#f7faf6] p-1">
+                <TabsTrigger
+                  value="client"
+                  className="flex items-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
+                >
+                  <UserPlus size={18} />
+                  <span>Client</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="association"
+                  className="flex items-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
+                >
+                  <Users size={18} />
+                  <span>Association</span>
+                </TabsTrigger>
+              </TabsList>
 
-            <form onSubmit={handleSubmit}>
-              <TabsContent value="client" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 ">
-                    <Label htmlFor="full_name">Full Name</Label>
-                    <Input
-                      id="full_name"
-                      placeholder="full_name"
-                      value={full_name}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className={`border p-2 rounded w-full ${
-                        errors.full_name
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-300"
-                      }`}
-                    />
-                    {errors.full_name && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errors.full_name[0]}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email-individual">Email</Label>
-                    <Input
-                      id="email-individual"
-                      type="email"
-                      placeholder="example@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className={`border p-2 rounded w-full ${
-                        errors.email
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-300"
-                      }`}
-                    />
-                    {errors.email && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errors.email[0]}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone-individual">Phone</Label>
-                    <Input
-                      id="phone-individual"
-                      placeholder="09xxxxxxxx"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className={`border p-2 rounded w-full ${
-                        errors.full_name
-                          ? "border-red-500 bg-red-50"
-                          : "border-gray-300"
-                      }`}
-                    />
-                    {errors.full_name && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errors.full_name[0]}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2 ">
-                    <Label htmlFor="images">صورة شخصية </Label>
-                    <div className="flex items-center flex-row-reverse gap-2">
-                      <Label
-                        htmlFor="images"
-                        className="flex items-center gap-2 py-2 px-4 border border-dashed border-primary rounded-md w-full cursor-pointer hover:bg-gray-50 transition-colors"
-                      >
-                        <Upload size={18} className="text-primary" />
-                        <span>
-                          {images.length > 0
-                            ? `${images.length} ملف/ملفات محددة`
-                            : "اضغط لتحميل صورة شخصية"}
-                        </span>
+              <form onSubmit={handleSubmit}>
+                <TabsContent value="client" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2 ">
+                      <Label htmlFor="full_name" className="text-slate-700">
+                        Full Name
                       </Label>
                       <Input
-                        id="images"
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={handleImageChange}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 ">
-                    <Label htmlFor="documents">وثائق التوثيق</Label>
-                    <div className="flex items-center flex-row-reverse gap-2">
-                      <Label
-                        htmlFor="documents"
-                        className="flex items-center gap-2 py-2 px-4 border border-dashed border-primary rounded-md w-full cursor-pointer hover:bg-gray-50 transition-colors"
-                      >
-                        <Upload size={18} className="text-primary" />
-                        <span>
-                          {documents.length > 0
-                            ? `${documents.length} ملف/ملفات محددة`
-                            : "اضغط لتحميل الوثائق"}
-                        </span>
-                      </Label>
-                      <Input
-                        id="documents"
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={handleFileChange}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-1  mt-3">
-                    <span className="text-xs text-gray-500">
-                      يمكنك رفع أي بطاقة أو وثيقة تثبت أحقيتك في الانضمام لنا
-                    </span>
-                    <br />
-                    <span className="text-xs text-gray-500">
-                      سيقوم الأدمن بمراجعة الملفات
-                    </span>
-                  </div>
-                </div> */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="password-individual">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password-individual"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Abcd123@"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className={`border p-2 rounded w-full ${
-                          errors.password
+                        id="full_name"
+                        placeholder="Full name"
+                        value={full_name}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className={`h-11 rounded border p-2 w-full focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                          errors.full_name
                             ? "border-red-500 bg-red-50"
-                            : "border-gray-300"
+                            : "border-slate-200 bg-[#fcfdfb]"
                         }`}
                       />
-                      <button
-                        type="button"
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff size={18} />
-                        ) : (
-                          <Eye size={18} />
-                        )}
-                      </button>
-                    </div>
-                    <div className="relative">
-                      {errors.password && (
+                      {errors.full_name && (
                         <p className="text-red-500 text-sm mt-1">
-                          {errors.password[0]}
+                          {errors.full_name[0]}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="email-individual"
+                        className="text-slate-700"
+                      >
+                        Email
+                      </Label>
+                      <Input
+                        id="email-individual"
+                        type="email"
+                        placeholder="name@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={`h-11 rounded border p-2 w-full focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                          errors.email
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-200 bg-[#fcfdfb]"
+                        }`}
+                      />
+                      {errors.email && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {errors.email[0]}
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="space-y-2 ">
-                    <Label htmlFor="confirm-password-individual">
-                      Passowrd confirmation
-                    </Label>
-                    <div className="relative">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="password-individual"
+                        className="text-slate-700"
+                      >
+                        Password
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="password-individual"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Abcd123@"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className={`h-11 rounded border p-2 w-full pl-10 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                            errors.password
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-200 bg-[#fcfdfb]"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
+                        </button>
+                      </div>
+                      <div className="relative">
+                        {errors.password && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {errors.password[0]}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-2 ">
+                      <Label htmlFor="confirm-password-individual">
+                        Password confirmation
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="confirm-password-individual"
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Re-enter your password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className={`h-11 rounded border p-2 w-full pl-10 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                            errors.password
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-200 bg-[#fcfdfb]"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
+                        </button>
+                      </div>
+                      <div className="relative">
+                        {(errors.password && !confirmPassword && (
+                          <p className="text-red-500 text-sm mt-1">
+                            Confirm your password.
+                          </p>
+                        )) ||
+                          (errors.password &&
+                            confirmPassword &&
+                            confirmPassword != password && (
+                              <p className="text-red-500 text-sm mt-1">
+                                The password field confirmation does not match.
+                              </p>
+                            ))}
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+                <TabsContent value="association" className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2 ">
+                      <Label htmlFor="full_name" className="text-slate-700">
+                        Full Name
+                      </Label>
                       <Input
-                        id="confirm-password-individual"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Re-enter your password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className={`border p-2 rounded w-full ${
-                          errors.password_confirmation
+                        id="full_name"
+                        placeholder="Full name"
+                        value={full_name}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className={`h-11 rounded border p-2 w-full focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                          errors.full_name
                             ? "border-red-500 bg-red-50"
-                            : "border-gray-300"
+                            : "border-slate-200 bg-[#fcfdfb]"
                         }`}
                       />
-                      <button
-                        type="button"
-                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500"
-                        onClick={() =>
-                          setShowConfirmPassword(!showConfirmPassword)
-                        }
-                      >
-                        {showConfirmPassword ? (
-                          <EyeOff size={18} />
-                        ) : (
-                          <Eye size={18} />
-                        )}
-                      </button>
-                    </div>
-                    <div className="relative">
-                      {(errors.password && !confirmPassword && (
+                      {errors.full_name && (
                         <p className="text-red-500 text-sm mt-1">
-                          Confirm your passowrd.
+                          {errors.full_name[0]}
                         </p>
-                      )) ||
-                        (errors.password &&
-                          confirmPassword &&
-                          confirmPassword != password && (
-                            <p className="text-red-500 text-sm mt-1">
-                              The password field confirmation does not match.
-                            </p>
-                          ))}
+                      )}
                     </div>
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="association" className="space-y-4" dir="rtl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 ">
-                    <Label htmlFor="full-name">اسم الجمعية/المركز</Label>
-                    <Input
-                      id="full-name"
-                      placeholder="أدخل اسم الجمعية أو المركز"
-                      value={full_name}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className=""
-                    />
-                  </div>
-                  <div className="space-y-2 ">
-                    <Label htmlFor="email-org">البريد الإلكتروني</Label>
-                    <Input
-                      id="email-org"
-                      type="email"
-                      placeholder="أدخل البريد الإلكتروني"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className=""
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 ">
-                    <Label htmlFor="phone-org">رقم التواصل</Label>
-                    <Input
-                      id="phone-org"
-                      placeholder="09xxxxxxxx"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className=""
-                    />
-                  </div>
-                  <div className="space-y-2 ">
-                    <Label htmlFor="images">صورة للملف الشخصي </Label>
-                    <div className="flex items-center flex-row-reverse gap-2">
+                    <div className="space-y-2">
                       <Label
-                        htmlFor="images"
-                        className="flex items-center gap-2 py-2 px-4 border border-dashed border-primary rounded-md w-full cursor-pointer hover:bg-gray-50 transition-colors"
+                        htmlFor="email-individual"
+                        className="text-slate-700"
                       >
-                        <Upload size={18} className="text-primary" />
-                        <span>
-                          {images.length > 0
-                            ? `${images.length} ملف/ملفات محددة`
-                            : "اضغط لتحميل صورة شخصية"}
-                        </span>
+                        Email
                       </Label>
                       <Input
-                        id="images"
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={handleImageChange}
+                        id="email-individual"
+                        type="email"
+                        placeholder="name@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={`h-11 rounded border p-2 w-full focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                          errors.email
+                            ? "border-red-500 bg-red-50"
+                            : "border-slate-200 bg-[#fcfdfb]"
+                        }`}
                       />
+                      {errors.email && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {errors.email[0]}
+                        </p>
+                      )}
                     </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 ">
-                    <Label htmlFor="documents">وثائق التوثيق</Label>
-                    <div className="flex items-center flex-row-reverse gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label
-                        htmlFor="documents"
-                        className="flex items-center gap-2 py-2 px-4 border border-dashed border-primary rounded-md w-full cursor-pointer hover:bg-gray-50 transition-colors"
+                        htmlFor="password-individual"
+                        className="text-slate-700"
                       >
-                        <Upload size={18} className="text-primary" />
-                        <span>
-                          {documents.length > 0
-                            ? `${documents.length} ملف/ملفات محددة`
-                            : "اضغط لتحميل الوثائق"}
-                        </span>
+                        Password
                       </Label>
-                      <Input
-                        id="documents"
-                        type="file"
-                        multiple
-                        className="hidden"
-                        onChange={handleFileChange}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="password-individual"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Abcd123@"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className={`h-11 rounded border p-2 w-full pl-10 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                            errors.password
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-200 bg-[#fcfdfb]"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
+                        </button>
+                      </div>
+                      <div className="relative">
+                        {errors.password && (
+                          <p className="text-red-500 text-sm mt-1">
+                            {errors.password[0]}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500">
-                      يمكنك رفع أي بطاقة أو وثيقة تثبت أحقيتك في الانضمام لنا
-                    </p>
-                  </div>
-                  <div className="space-y-2 ">
-                    <Label htmlFor="license">رقم الترخيص</Label>
-                    <Input
-                      id="license"
-                      placeholder="أدخل رقم الترخيص"
-                      value={orgLicense}
-                      onChange={(e) => setOrgLicense(e.target.value)}
-                      className=""
-                    />
-                    <p className="text-xs text-gray-500">
-                      سيتم التحقق من صحة الترخيص قبل تفعيل الحساب
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 ">
-                    <Label htmlFor="password-org">كلمة المرور</Label>
-                    <div className="relative">
-                      <Input
-                        id="password-org"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="أدخل كلمة المرور"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className=" pr-10"
-                      />
+                    <div className="space-y-2 ">
+                      <Label htmlFor="confirm-password-individual">
+                        Password confirmation
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="confirm-password-individual"
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Re-enter your password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className={`h-11 rounded border p-2 w-full pl-10 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+                            errors.password
+                              ? "border-red-500 bg-red-50"
+                              : "border-slate-200 bg-[#fcfdfb]"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
+                        </button>
+                      </div>
+                      <div className="relative">
+                        {(errors.password && !confirmPassword && (
+                          <p className="text-red-500 text-sm mt-1">
+                            Confirm your password.
+                          </p>
+                        )) ||
+                          (errors.password &&
+                            confirmPassword &&
+                            confirmPassword != password && (
+                              <p className="text-red-500 text-sm mt-1">
+                                The password field confirmation does not match.
+                              </p>
+                            ))}
+                      </div>
                     </div>
                   </div>
-
-                  <div className="space-y-2 ">
-                    <Label htmlFor="confirm-password-org">
-                      تأكيد كلمة المرور
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        id="confirm-password-org"
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="أعد إدخال كلمة المرور"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className=" pr-10"
-                      />
+                </TabsContent>
+                <Button
+                  type="submit"
+                  className="mt-6 h-11 w-full bg-gradient-to-l from-emerald-700 to-teal-600 text-white shadow-lg shadow-emerald-900/10 transition hover:brightness-110"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin ml-2"></div>
+                      <span>Loading...</span>
                     </div>
-                  </div>
-                </div>
-              </TabsContent>
+                  ) : (
+                    <span>Create</span>
+                  )}
+                </Button>
+              </form>
+            </Tabs>
 
-              {/* <div className="flex items-center space-x-2 space-x-reverse mt-6">
-                <Checkbox
-                  id="terms"
-                  checked={agreeTerms}
-                  onCheckedChange={(checked) => setAgreeTerms(checked === true)}
-                />
-                <Label htmlFor="terms" className="text-sm font-normal">
-                  أوافق على{" "}
-                  <Link to="/terms" className="text-primary hover:underline">
-                    الشروط والأحكام
-                  </Link>{" "}
-                  و{" "}
-                  <Link to="/privacy" className="text-primary hover:underline">
-                    سياسة الخصوصية
-                  </Link>
-                </Label>
-              </div> */}
+            <div className="relative mt-8">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-slate-300"></span>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-slate-500">Or</span>
+              </div>
+            </div>
 
+            <div className="mt-5">
               <Button
-                type="submit"
-                className="w-full mt-6"
-                disabled={isLoading}
+                type="button"
+                variant="outline"
+                className="h-11 w-full border-slate-200 bg-white/90 text-slate-700 shadow-sm transition hover:bg-emerald-50"
+                onClick={() => handleGoogleAuth()}
+                disabled={isGoogleLoading}
               >
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin ml-2"></div>
-                    <span>جاري إنشاء الحساب...</span>
-                  </div>
-                ) : (
-                  <span>إنشاء حساب</span>
-                )}
+                <span className="flex items-center justify-center gap-3">
+                  <svg
+                    viewBox="0 0 48 48"
+                    className="h-5 w-5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="#FFC107"
+                      d="M43.611 20.083H42V20H24v8h11.303C33.652 32.659 29.32 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.038l5.657-5.657C34.051 6.053 29.284 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+                    />
+                    <path
+                      fill="#FF3D00"
+                      d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.038l5.657-5.657C34.051 6.053 29.284 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
+                    />
+                    <path
+                      fill="#4CAF50"
+                      d="M24 44c5.22 0 9.943-1.997 13.523-5.243l-6.248-5.285C29.173 34.091 26.717 35 24 35c-5.3 0-9.618-3.317-11.29-7.946l-6.52 5.024C9.514 39.556 16.227 44 24 44z"
+                    />
+                    <path
+                      fill="#1976D2"
+                      d="M43.611 20.083H42V20H24v8h11.303c-1.013 2.916-3.04 5.347-5.827 6.471l.002-.001 6.248 5.285C35.804 37.196 40 31.103 40 24c0-1.341-.138-2.65-.389-3.917z"
+                    />
+                  </svg>
+                  <span>
+                    {isGoogleLoading
+                      ? "Please wait..."
+                      : "Continue with Google"}
+                  </span>
+                </span>
               </Button>
-            </form>
-          </Tabs>
+            </div>
 
-          <div className="text-center mt-8">
-            <p className="text-sm text-gray-600">
-              لديك حساب بالفعل؟{" "}
-              <Link
-                to="/login"
-                className="text-primary font-semibold hover:underline"
-              >
-                تسجيل الدخول
-              </Link>
-            </p>
+            <div className="text-center mt-8">
+              <p className="text-sm text-slate-600">
+                Already have an account?{" "}
+                <Link
+                  to="/login"
+                  className="font-semibold text-emerald-700 hover:text-emerald-900"
+                >
+                  Login
+                </Link>
+              </p>
+            </div>
           </div>
-        </div>
-
-        <div className="text-center mt-8">
-          <Link to="/" className="text-sm text-gray-600 hover:text-primary">
-            العودة إلى الصفحة الرئيسية
-          </Link>
         </div>
       </div>
     </div>

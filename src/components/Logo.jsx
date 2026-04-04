@@ -44,7 +44,7 @@ const Logo = ({ size = "medium", withText = true }) => {
 
       {withText && (
         <span className={`font-bold ${text} text-primary relative`}>
-          <span className="relative z-10">تمكين</span>
+          <span className="relative z-10">Tamkeen</span>
           <span className="absolute inset-x-0 bottom-0 h-8 bg-secondary z-0 transform -rotate-2"></span>
         </span>
       )}
