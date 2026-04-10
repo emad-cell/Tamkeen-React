@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, UserPlus, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Building2, Eye, EyeOff, UserPlus } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 import {
@@ -15,7 +15,9 @@ import {
 } from "@/services/auth";
 import { useAuth } from "@/context/AuthContext";
 import { handleApiError } from "@/utils/apiError";
+import { logger } from "@/utils/logger";
 const Register = () => {
+  const [searchParams] = useSearchParams();
   const [full_name, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,24 +32,29 @@ const Register = () => {
   const { login } = useAuth();
   const [errors, setErrors] = useState({});
 
+  useEffect(() => {
+    const requestedType = searchParams.get("type");
+    if (requestedType === "association") {
+      setUserType("association");
+      return;
+    }
+    if (requestedType === "client" || requestedType === "user") {
+      setUserType("client");
+    }
+  }, [searchParams]);
+
   const handleGoogleAuth = useGoogleLogin({
+    flow: "implicit",
     onSuccess: async (tokenResponse) => {
       setIsGoogleLoading(true);
-
       try {
         const res = await authWithGoogle({
           access_token: tokenResponse.access_token,
           provider: "google",
         });
-
-        const authData = res?.data?.data || res?.data?.user || res?.data;
-        const token = authData?.token || res?.data?.token;
-
-        if (!token) {
-          throw new Error("Token not found in Google login response");
-        }
-
-        login({ ...authData, token });
+        const authData = res.data.data;
+        logger.debug("Google auth response:", res);
+        login(authData);
         toast({
           title: "Logged in successfully",
           description: `Welcome, ${authData?.email || "there"}`,
@@ -89,10 +96,10 @@ const Register = () => {
         password_confirmation: confirmPassword,
       };
       const response =
-        userType == "client"
+        userType === "client"
           ? await registerClient(payload)
           : await registerAssociation(payload); // single call, no if/else
-      console.log(response);
+      logger.debug("Register response:", response);
       login(response.data.data);
       toast({
         title: "Account Created Successfully",
@@ -130,28 +137,34 @@ const Register = () => {
               </p>
             </div>
 
-            <Tabs defaultValue="client" onValueChange={setUserType}>
+            <Tabs value={userType} onValueChange={setUserType}>
               <TabsList className="mb-8 grid w-full grid-cols-2 rounded-xl border border-slate-200 bg-[#f7faf6] p-1">
                 <TabsTrigger
                   value="client"
                   className="flex items-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
                 >
                   <UserPlus size={18} />
-                  <span>Client</span>
+                  <span>User Account</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="association"
                   className="flex items-center gap-2 rounded-lg data-[state=active]:bg-white data-[state=active]:text-emerald-700 data-[state=active]:shadow-sm"
                 >
-                  <Users size={18} />
-                  <span>Association</span>
+                  <Building2 size={18} />
+                  <span>Association Account</span>
                 </TabsTrigger>
               </TabsList>
 
+              <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                {userType === "association"
+                  ? "Association account selected. Register with your organization details to manage services and requests."
+                  : "User account selected. Register with your personal details to discover and request services."}
+              </div>
+
               <form onSubmit={handleSubmit}>
-                <TabsContent value="client" className="space-y-4">
+                <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2 ">
+                    <div className="space-y-2">
                       <Label htmlFor="full_name" className="text-slate-700">
                         Full Name
                       </Label>
@@ -173,14 +186,11 @@ const Register = () => {
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="email-individual"
-                        className="text-slate-700"
-                      >
+                      <Label htmlFor="email" className="text-slate-700">
                         Email
                       </Label>
                       <Input
-                        id="email-individual"
+                        id="email"
                         type="email"
                         placeholder="name@example.com"
                         value={email}
@@ -198,17 +208,15 @@ const Register = () => {
                       )}
                     </div>
                   </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="password-individual"
-                        className="text-slate-700"
-                      >
+                      <Label htmlFor="password" className="text-slate-700">
                         Password
                       </Label>
                       <div className="relative">
                         <Input
-                          id="password-individual"
+                          id="password"
                           type={showPassword ? "text" : "password"}
                           placeholder="Abcd123@"
                           value={password}
@@ -231,27 +239,26 @@ const Register = () => {
                           )}
                         </button>
                       </div>
-                      <div className="relative">
-                        {errors.password && (
-                          <p className="text-red-500 text-sm mt-1">
-                            {errors.password[0]}
-                          </p>
-                        )}
-                      </div>
+                      {errors.password && (
+                        <p className="text-red-500 text-sm mt-1">
+                          {errors.password[0]}
+                        </p>
+                      )}
                     </div>
-                    <div className="space-y-2 ">
-                      <Label htmlFor="confirm-password-individual">
+
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">
                         Password confirmation
                       </Label>
                       <div className="relative">
                         <Input
-                          id="confirm-password-individual"
+                          id="confirm-password"
                           type={showConfirmPassword ? "text" : "password"}
                           placeholder="Re-enter your password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           className={`h-11 rounded border p-2 w-full pl-10 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                            errors.password
+                            errors.password || errors.confirmPassword
                               ? "border-red-500 bg-red-50"
                               : "border-slate-200 bg-[#fcfdfb]"
                           }`}
@@ -270,161 +277,22 @@ const Register = () => {
                           )}
                         </button>
                       </div>
-                      <div className="relative">
-                        {(errors.password && !confirmPassword && (
-                          <p className="text-red-500 text-sm mt-1">
-                            Confirm your password.
-                          </p>
-                        )) ||
-                          (errors.password &&
-                            confirmPassword &&
-                            confirmPassword != password && (
-                              <p className="text-red-500 text-sm mt-1">
-                                The password field confirmation does not match.
-                              </p>
-                            ))}
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-                <TabsContent value="association" className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2 ">
-                      <Label htmlFor="full_name" className="text-slate-700">
-                        Full Name
-                      </Label>
-                      <Input
-                        id="full_name"
-                        placeholder="Full name"
-                        value={full_name}
-                        onChange={(e) => setFullName(e.target.value)}
-                        className={`h-11 rounded border p-2 w-full focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                          errors.full_name
-                            ? "border-red-500 bg-red-50"
-                            : "border-slate-200 bg-[#fcfdfb]"
-                        }`}
-                      />
-                      {errors.full_name && (
+                      {errors.confirmPassword?.[0] && (
                         <p className="text-red-500 text-sm mt-1">
-                          {errors.full_name[0]}
+                          {errors.confirmPassword[0]}
                         </p>
                       )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="email-individual"
-                        className="text-slate-700"
-                      >
-                        Email
-                      </Label>
-                      <Input
-                        id="email-individual"
-                        type="email"
-                        placeholder="name@example.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className={`h-11 rounded border p-2 w-full focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                          errors.email
-                            ? "border-red-500 bg-red-50"
-                            : "border-slate-200 bg-[#fcfdfb]"
-                        }`}
-                      />
-                      {errors.email && (
-                        <p className="text-red-500 text-sm mt-1">
-                          {errors.email[0]}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="password-individual"
-                        className="text-slate-700"
-                      >
-                        Password
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="password-individual"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Abcd123@"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className={`h-11 rounded border p-2 w-full pl-10 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                            errors.password
-                              ? "border-red-500 bg-red-50"
-                              : "border-slate-200 bg-[#fcfdfb]"
-                          }`}
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
-                          onClick={() => setShowPassword(!showPassword)}
-                        >
-                          {showPassword ? (
-                            <EyeOff size={18} />
-                          ) : (
-                            <Eye size={18} />
-                          )}
-                        </button>
-                      </div>
-                      <div className="relative">
-                        {errors.password && (
+                      {errors.password &&
+                        confirmPassword &&
+                        confirmPassword !== password && (
                           <p className="text-red-500 text-sm mt-1">
-                            {errors.password[0]}
+                            The password field confirmation does not match.
                           </p>
                         )}
-                      </div>
-                    </div>
-                    <div className="space-y-2 ">
-                      <Label htmlFor="confirm-password-individual">
-                        Password confirmation
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="confirm-password-individual"
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="Re-enter your password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className={`h-11 rounded border p-2 w-full pl-10 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
-                            errors.password
-                              ? "border-red-500 bg-red-50"
-                              : "border-slate-200 bg-[#fcfdfb]"
-                          }`}
-                        />
-                        <button
-                          type="button"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-500 transition hover:bg-emerald-50 hover:text-emerald-700"
-                          onClick={() =>
-                            setShowConfirmPassword(!showConfirmPassword)
-                          }
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff size={18} />
-                          ) : (
-                            <Eye size={18} />
-                          )}
-                        </button>
-                      </div>
-                      <div className="relative">
-                        {(errors.password && !confirmPassword && (
-                          <p className="text-red-500 text-sm mt-1">
-                            Confirm your password.
-                          </p>
-                        )) ||
-                          (errors.password &&
-                            confirmPassword &&
-                            confirmPassword != password && (
-                              <p className="text-red-500 text-sm mt-1">
-                                The password field confirmation does not match.
-                              </p>
-                            ))}
-                      </div>
                     </div>
                   </div>
-                </TabsContent>
+                </div>
+
                 <Button
                   type="submit"
                   className="mt-6 h-11 w-full bg-gradient-to-l from-emerald-700 to-teal-600 text-white shadow-lg shadow-emerald-900/10 transition hover:brightness-110"
@@ -436,7 +304,11 @@ const Register = () => {
                       <span>Loading...</span>
                     </div>
                   ) : (
-                    <span>Create</span>
+                    <span>
+                      {userType === "association"
+                        ? "Create Association Account"
+                        : "Create User Account"}
+                    </span>
                   )}
                 </Button>
               </form>
@@ -495,10 +367,14 @@ const Register = () => {
               <p className="text-sm text-slate-600">
                 Already have an account?{" "}
                 <Link
-                  to="/login"
+                  to={
+                    userType === "association"
+                      ? "/login?type=association"
+                      : "/login?type=client"
+                  }
                   className="font-semibold text-emerald-700 hover:text-emerald-900"
                 >
-                  Login
+                  Sign in
                 </Link>
               </p>
             </div>

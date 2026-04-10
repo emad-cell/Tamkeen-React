@@ -1,4 +1,6 @@
 
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -74,8 +76,28 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     background-image: linear-gradient(180deg, hsl(155 30% 98%) 0%, hsl(150 24% 96%) 100%);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Manrope", "Plus Jakarta Sans", sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 }
 

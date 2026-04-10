@@ -90,7 +90,6 @@ const Login = () => {
         email,
         password,
       });
-      console.log(res);
       login(res.data.data);
       toast({
         title: "Logged in successfully",
@@ -255,7 +254,7 @@ const Login = () => {
                   to="/register"
                   className="font-semibold text-emerald-700 hover:text-emerald-900"
                 >
-                  Create one
+                  Create an account
                 </Link>
               </p>
             </div>
